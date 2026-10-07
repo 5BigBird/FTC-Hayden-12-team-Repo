@@ -22,7 +22,7 @@ public class RobotTeleOp extends LinearOpMode {
         );
 
         waitForStart();
-        
+
         //play
         while (opModeIsActive()) {
             driveCommand.execute();
