@@ -22,12 +22,9 @@ public class TeleopWebcam extends LinearOpMode {
     @Override
     public void runOpMode() {
         // Step 1: Retrieve webcam hardware configuration ("Webcam 1") from the Robot Controller
-        WebcamName webcamName = hardwareMap.get(WebcamName.class, "Webcam 1");
+
 
         // Step 2: Build and start the VisionPortal instance for live camera streaming
-        visionPortal = new VisionPortal.Builder()
-                .setCamera(webcamName) // Connect the webcam hardware instance
-                .build();              // Construct and open the vision portal
 
         // Step 3: Send initialization status and driver instructions to telemetry screen
         telemetry.addData("Camera Status", "Initialized and Streaming");
