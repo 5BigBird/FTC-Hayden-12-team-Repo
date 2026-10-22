@@ -53,8 +53,7 @@ public class AutoWebcam extends LinearOpMode {
     private double targetYaw     = 0;
     @Override public void runOpMode() {
         double  drive           = 0;        // Desired forward power/speed (-1 to +1)
-        double  strafe          = 0;        // Desired strafe power/speed (-1 to +1)
-        double  turn            = 0;        // Desired turning power/speed (-1 to +1)
+        double  angle          = 0;        // Desired angle to turn power/speed (-1 to +1)
 
         initAprilTag();
 
@@ -102,8 +101,8 @@ public class AutoWebcam extends LinearOpMode {
                             // Yes, we want to use this tag.
                             targetName    = singleDetection.metadata.name;
                             targetID      = singleDetection.id;
-                            targetRange   = singleDetection.ftcPose.range;
-                            targetBearing = singleDetection.ftcPose.bearing;
+                            targetRange   = singleDetection.ftcPose.range; // distance
+                            targetBearing = singleDetection.ftcPose.bearing; // angle relative from camera to apriltag
                             targetYaw     = singleDetection.ftcPose.yaw;
                             targetFound = true;
                             break;  // don't look any further.
@@ -143,31 +142,18 @@ public class AutoWebcam extends LinearOpMode {
             }
 
             // If Left Bumper is being pressed, AND we have found the desired target, Drive to target Automatically .
-            if (gamepad1.left_bumper && targetFound) {
 
-                // TODO: fix the angle and movement so it fits my function and not theirs.
-                // Determine heading, range and Yaw (tag image rotation) error so we can use them to control the robot automatically.
-                double  rangeError      = targetRange - DESIRED_DISTANCE;
-                double  headingError    = targetBearing;
-                double  yawError        = targetYaw;
+            // Determine heading, range and Yaw (tag image rotation) error so we can use them to control the robot automatically.
+            double  rangeError      = targetRange - DESIRED_DISTANCE;
+            angle    = targetBearing;
+            // Use the speed and turn "gains" to calculate how we want the robot to move.
+            drive  = Range.clip(rangeError * SPEED_GAIN, -MAX_AUTO_SPEED, MAX_AUTO_SPEED);
 
-                // Use the speed and turn "gains" to calculate how we want the robot to move.
-                drive  = Range.clip(rangeError * SPEED_GAIN, -MAX_AUTO_SPEED, MAX_AUTO_SPEED);
-                turn   = Range.clip(headingError * TURN_GAIN, -MAX_AUTO_TURN, MAX_AUTO_TURN) ;
-                strafe = Range.clip(-yawError * STRAFE_GAIN, -MAX_AUTO_STRAFE, MAX_AUTO_STRAFE);
-
-                telemetry.addData("Auto","Drive %5.2f, Strafe %5.2f, Turn %5.2f ", drive, strafe, turn);
-            } else {
-                // drive using manual POV Joystick mode.  Slow things down to make the robot more controlable.
-                drive  = -gamepad1.left_stick_y  / 2.0;  // Reduce drive rate to 50%.
-                strafe = -gamepad1.left_stick_x  / 2.0;  // Reduce strafe rate to 50%.
-                turn   = -gamepad1.right_stick_x / 3.0;  // Reduce turn rate to 33%.
-                telemetry.addData("Manual","Drive %5.2f, Strafe %5.2f, Turn %5.2f ", drive, strafe, turn);
-            }
+            telemetry.addData("Auto","Drive %5.2f, Turning Angle %5.2f ", drive, angle);
             telemetry.update();
 
             // Apply desired axes motions to the drivetrain.
-            MoveRobot.driveAngular(drive, strafe);
+            MoveRobot.driveAngular(drive, angle);
             sleep(10);
         }
     }
