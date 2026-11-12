@@ -69,12 +69,12 @@ public class AutoWebcam extends LinearOpMode {
         backLeftDrive   = hardwareMap.get(DcMotor.class, "backLeft");
         backRightDrive  = hardwareMap.get(DcMotor.class, "backRight");
 
-        // Reverse left motors so forward power moves the bot forward
-        frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
-        frontRightDrive.setDirection(DcMotor.Direction.REVERSE);
-        backLeftDrive.setDirection(DcMotor.Direction.FORWARD);
-        backRightDrive.setDirection(DcMotor.Direction.FORWARD);
 
+        // 1. Fix motor directions (Reverse LEFT side, Forward RIGHT side)
+        frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
+        backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
+        frontRightDrive.setDirection(DcMotor.Direction.FORWARD);
+        backRightDrive.setDirection(DcMotor.Direction.FORWARD);
         if (USE_WEBCAM)
             setManualExposure(6, 250);  // Use low exposure time to reduce motion blur
 
@@ -82,80 +82,76 @@ public class AutoWebcam extends LinearOpMode {
         telemetry.addData("Camera preview on/off", "3 dots, Camera Stream");
         telemetry.addData(">", "Touch START to start OpMode");
         telemetry.update();
+
+// IMPORTANT: Make sure MoveRobot is initialized with your hardwareMap or motors!
+// Example: MoveRobot.init(hardwareMap);
+
         waitForStart();
-        // Step 5: Main execution loop while the match/OpMode is running
+
         while (opModeIsActive()) {
             targetFound = false;
 
-            // Step through the list of detected tags and look for a matching tag
             List<AprilTagDetection> currentDetections = aprilTag.getDetections();
             for (AprilTagDetection detection : currentDetections) {
-
                 if (detection instanceof AprilTagSingleDetection) {
                     AprilTagSingleDetection singleDetection = (AprilTagSingleDetection) detection;
-
-                    // Look to see if we have size info on this tag.
-                    if (singleDetection.metadata != null) {
-                        //  Check to see if we want to track towards this tag.
-                        if ((DESIRED_TAG_ID < 0) || (singleDetection.id == DESIRED_TAG_ID)) {
-                            // Yes, we want to use this tag.
-                            targetName    = singleDetection.metadata.name;
-                            targetID      = singleDetection.id;
-                            targetRange   = singleDetection.ftcPose.range; // distance
-                            targetBearing = singleDetection.ftcPose.bearing; // angle relative from camera to apriltag
-                            targetYaw     = singleDetection.ftcPose.yaw;
-                            targetFound = true;
-                            break;  // don't look any further.
-                        } else {
-                            // This tag is in the library, but we do not want to track it right now.
-                            telemetry.addData("Skipping", "Tag ID %d is not desired", singleDetection.id);
-                        }
-                    } else {
-                        // This tag is NOT in the library, so we don't have enough information to track to it.
-                        telemetry.addData("Unknown", "Tag ID %d is not in TagLibrary", singleDetection.id);
+                    if (singleDetection.metadata != null && ((DESIRED_TAG_ID < 0) || (singleDetection.id == DESIRED_TAG_ID))) {
+                        targetName    = singleDetection.metadata.name;
+                        targetID      = singleDetection.id;
+                        targetRange   = singleDetection.ftcPose.range;
+                        targetBearing = singleDetection.ftcPose.bearing;
+                        targetYaw     = singleDetection.ftcPose.yaw;
+                        targetFound   = true;
+                        break;
                     }
-                } else {
+                } else if (detection instanceof AprilTagClusterDetection) {
                     AprilTagClusterDetection clusterDet = (AprilTagClusterDetection) detection;
-
-                    if (DESIRED_CLUSTER_NAME == null || clusterDet.metadata.shortName.equals(DESIRED_CLUSTER_NAME) ) {
-                        // Yes, we want to use this tag.
+                    if (DESIRED_CLUSTER_NAME == null || clusterDet.metadata.shortName.equals(DESIRED_CLUSTER_NAME)) {
                         targetName    = clusterDet.metadata.shortName;
                         targetID      = -1;
                         targetRange   = clusterDet.ftcPose.range;
                         targetBearing = clusterDet.ftcPose.bearing;
                         targetYaw     = clusterDet.ftcPose.yaw;
-                        targetFound = true;
-                        break;  // don't look any further.
+                        targetFound   = true;
+                        break;
                     }
                 }
             }
 
-            // Tell the driver what we see, and what to do.
             if (targetFound) {
-                telemetry.addData("\n>","HOLD Left-Bumper to Drive to Target\n");
+                double rangeError = targetRange - DESIRED_DISTANCE;
+
+                // Check if the robot has reached the target (within 1.5 inches and 2 degrees)
+                if (Math.abs(rangeError) < 1.5 && Math.abs(targetBearing) < 2.0) {
+                    MoveRobot.driveAngular(0, 0);
+                    telemetry.addData("Status", "Target Reached!");
+                    telemetry.update();
+                    break; // Exit the autonomous loop once parked at the tag
+                }
+
+                // Calculate proportional drive and turn powers
+                drive = Range.clip(rangeError * SPEED_GAIN, -MAX_AUTO_SPEED, MAX_AUTO_SPEED);
+
+                // Note: If MoveRobot.driveAngular expects raw degrees, keep `angle = targetBearing;`
+                // If it expects motor turn power (-1 to 1), use the line below:
+                angle = Range.clip(targetBearing * TURN_GAIN, -MAX_AUTO_TURN, MAX_AUTO_TURN);
+
                 telemetry.addData("Found", "ID %d (%s)", targetID, targetName);
-                telemetry.addData("Range",  "%5.1f inches", targetRange);
-                telemetry.addData("Bearing","%3.0f degrees", targetBearing);
-                telemetry.addData("Yaw","%3.0f degrees", targetYaw);
+                telemetry.addData("Auto", "Drive %5.2f, Turn %5.2f", drive, angle);
+                MoveRobot.driveAngular(drive, angle);
             } else {
-                telemetry.addData("\n>","Drive using joysticks to find valid target\n");
+                // Stop safely (or set a slow turn speed like 0.15 to search for a tag)
+                telemetry.addData("Status", "Searching for AprilTag...");
+                MoveRobot.driveAngular(0, 0);
             }
 
-            // If Left Bumper is being pressed, AND we have found the desired target, Drive to target Automatically .
-
-            // Determine heading, range and Yaw (tag image rotation) error so we can use them to control the robot automatically.
-            double  rangeError      = targetRange - DESIRED_DISTANCE;
-            angle    = targetBearing;
-            // Use the speed and turn "gains" to calculate how we want the robot to move.
-            drive  = Range.clip(rangeError * SPEED_GAIN, -MAX_AUTO_SPEED, MAX_AUTO_SPEED);
-
-            telemetry.addData("Auto","Drive %5.2f, Turning Angle %5.2f ", drive, angle);
             telemetry.update();
-
-            // Apply desired axes motions to the drivetrain.
-            MoveRobot.driveAngular(drive, angle);
             sleep(10);
         }
+
+// Ensure motors are completely stopped when OpMode finishes
+        MoveRobot.driveAngular(0, 0);
+
     }
     private void initAprilTag() {
         // Create the AprilTag processor by using a builder.

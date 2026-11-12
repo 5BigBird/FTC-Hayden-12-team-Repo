@@ -59,5 +59,6 @@ public class Cannon {
         // a high enough initial velocity that doesn't go too high or low (perhaps in the middle)
 
         // account for robot velocity? maybe a future thing, who knows
+        return adjustment;
     }
 }
