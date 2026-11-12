@@ -8,7 +8,9 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Servo;
 
-@Autonomous(name="Luc auto v1 test", group="Auto")
+import java.sql.Array;
+
+@Autonomous(name="Luc auto cannon v1 test", group="Auto")
 public class Cannon {
 
     // Hardware Declarations
@@ -33,7 +35,7 @@ public class Cannon {
         this.y_offset = y;
         this.z_offset = z;
     }
-    public double get_shoot_pos_adjustment(double[] distToAprilTag, double angle) {
+    public double[] get_shoot_pos_adjustment(double[] distToAprilTag, double angle) {
         double shooterAngle = 55; // angle in degrees from the horizontal
         double initVelo = 2; // (m/s)
         double VeloX = Math.cos(shooterAngle) * initVelo;
@@ -49,7 +51,9 @@ public class Cannon {
         double d_x = (VeloX * t); // this is where I want to be
 
 
+        double[] adjustment = new double[2];
 
+        adjustment[0] = d_x - distToAprilTag[0];
 
         // Calculate centrifugal forces on the ball given by the motor spinning the cannon to achieve
         // a high enough initial velocity that doesn't go too high or low (perhaps in the middle)

@@ -20,7 +20,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-@Autonomous(name="Luc auto v1 test", group="Auto")
+@Autonomous(name="Luc auto move v1 test", group="Auto")
 public class MoveRobot extends LinearOpMode {
 
     private DcMotor leftFrontDrive;
